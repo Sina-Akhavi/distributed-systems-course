@@ -1,0 +1,14 @@
+# Distributed Banking System - Requirements
+# 
+# This project is built entirely using the Python Standard Library.
+# No external packages (via pip) are required.
+
+# Core libraries used (built-in):
+# - socket
+# - threading
+# - sqlite3
+# - json
+# - argparse
+
+# Recommended Python version:
+python >= 3.8
