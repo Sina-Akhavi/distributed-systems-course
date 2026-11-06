@@ -1,0 +1,94 @@
+services:
+  db_a:
+    image: postgres:15-alpine
+    command: ["postgres", "-c", "max_prepared_transactions=100"]
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: bank_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db_init/shard_a:/docker-entrypoint-initdb.d
+      - pgdata_a:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d bank_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db_b:
+    image: postgres:15-alpine
+    command: ["postgres", "-c", "max_prepared_transactions=100"]
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: bank_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./db_init/shard_b:/docker-entrypoint-initdb.d
+      - pgdata_b:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d bank_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  bank_server_a1:
+    build: ./bank_server
+    environment: &bank_a_env
+      DB_HOST: db_a
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: bank_db
+      SHARD_NAME: Shard_A
+      REPLICA_NAME: A1
+    depends_on:
+      db_a:
+        condition: service_healthy
+
+  bank_server_a2:
+    build: ./bank_server
+    environment:
+      <<: *bank_a_env
+      REPLICA_NAME: A2
+    depends_on:
+      db_a:
+        condition: service_healthy
+
+  bank_server_b1:
+    build: ./bank_server
+    environment: &bank_b_env
+      DB_HOST: db_b
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: bank_db
+      SHARD_NAME: Shard_B
+      REPLICA_NAME: B1
+    depends_on:
+      db_b:
+        condition: service_healthy
+
+  bank_server_b2:
+    build: ./bank_server
+    environment:
+      <<: *bank_b_env
+      REPLICA_NAME: B2
+    depends_on:
+      db_b:
+        condition: service_healthy
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "8000:80"
+    depends_on:
+      - bank_server_a1
+      - bank_server_a2
+      - bank_server_b1
+      - bank_server_b2
+
+volumes:
+  pgdata_a:
+  pgdata_b:
